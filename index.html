@@ -1,0 +1,339 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Rain Bank — Rainwater Capture Simulator</title>
+  <style>
+    :root{
+      --bg:#f4fbff; --card:#ffffff; --accent:#0b76ef; --muted:#6b7280;
+    }
+    *{box-sizing:border-box}
+    body{font-family:Inter,system-ui,Segoe UI,Roboto,Arial; background:var(--bg); color:#0f172a; margin:0; padding:24px}
+    .container{max-width:1100px;margin:0 auto}
+    header{display:flex;align-items:center;gap:16px}
+    h1{font-size:22px;margin:0}
+    p.lead{color:var(--muted);margin:6px 0 18px}
+    .grid{display:grid;grid-template-columns:1fr 420px;gap:20px}
+    .card{background:var(--card);border-radius:12px;padding:18px;box-shadow:0 6px 18px rgba(11,118,239,0.06)}
+    label{display:block;font-size:13px;color:var(--muted);margin-bottom:6px}
+    input[type=range]{width:100%}
+    .controls{display:grid;gap:12px}
+
+    /* rain bank visual */
+    .tank-wrap{height:420px;display:flex;align-items:flex-end;justify-content:center}
+    .tank{width:220px;height:360px;border-radius:12px;border:6px solid #dbeafe;position:relative;overflow:hidden;background:linear-gradient(180deg,#eaf6ff,#d8f0ff)}
+    .water{position:absolute;left:0;right:0;bottom:0;height:40%;background:linear-gradient(180deg,#60a5fa 0%, #3b82f6 80%);transition:height 600ms linear}
+    .gauge{position:absolute;left:calc(100% + 14px);top:8px;font-size:13px;color:var(--muted)}
+    .info-row{display:flex;justify-content:space-between;gap:12px;margin-top:12px}
+    button{background:var(--accent);color:white;border:0;padding:10px 12px;border-radius:8px;cursor:pointer}
+    .muted{color:var(--muted);font-size:13px}
+    .log{height:140px;overflow:auto;padding:10px;border-radius:8px;background:#fbfdff;border:1px solid #eef6ff;font-size:13px}
+
+    .small{font-size:13px}
+    .sample-block{font-family:monospace;background:#0b1220;color:#e6f0ff;padding:10px;border-radius:8px;overflow:auto}
+
+    footer{margin-top:18px;color:var(--muted);font-size:13px}
+
+    /* responsive */
+    @media (max-width:900px){.grid{grid-template-columns:1fr} .tank-wrap{justify-content:flex-start}}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <svg width="40" height="40" viewBox="0 0 24 24" fill="none"><path d="M12 3v12" stroke="#0b76ef" stroke-width="1.6" stroke-linecap="round"/><path d="M19 20H5a2 2 0 0 1-2-2v-2a7 7 0 0 1 14 0v2a2 2 0 0 1-2 2z" stroke="#0b76ef" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <div>
+        <h1>Rain Bank — Rainwater Capture Simulator</h1>
+        <p class="lead">Interactive single-file web app to model a rain bank (inlet, silt trap, first-flush diverter, storage). Use this to prototype, demo, upload to GitHub and collaborate.</p>
+      </div>
+    </header>
+
+    <main class="grid" style="margin-top:18px">
+      <section class="card">
+        <h2 style="margin:0 0 10px">Simulation Controls</h2>
+        <div class="controls">
+          <div>
+            <label>Rainfall intensity (L / minute)</label>
+            <input id="rainIntensity" type="range" min="0" max="50" value="12" />
+            <div class="small muted"><span id="rainVal">12</span> L/min</div>
+          </div>
+
+          <div>
+            <label>Catchment area (m²)</label>
+            <input id="area" type="range" min="1" max="200" value="20" />
+            <div class="small muted"><span id="areaVal">20</span> m²</div>
+          </div>
+
+          <div>
+            <label>Silt trap efficiency (%) — how much gets through</label>
+            <input id="silt" type="range" min="0" max="100" value="80" />
+            <div class="small muted"><span id="siltVal">80</span>% passes</div>
+          </div>
+
+          <div>
+            <label>First-flush diversion (L) — initial dirty water diverted</label>
+            <input id="firstFlush" type="range" min="0" max="200" value="30" />
+            <div class="small muted"><span id="ffVal">30</span> L</div>
+          </div>
+
+          <div>
+            <label>Storage capacity (L)</label>
+            <input id="capacity" type="range" min="50" max="2000" value="500" />
+            <div class="small muted"><span id="capVal">500</span> L</div>
+          </div>
+
+          <div style="display:flex;gap:8px;margin-top:8px">
+            <button id="startBtn">Start Simulation</button>
+            <button id="resetBtn" style="background:#ef4444">Reset</button>
+          </div>
+        </div>
+
+        <div style="margin-top:14px">
+          <label>Simulation log</label>
+          <div class="log" id="log">Ready — adjust inputs and press Start.</div>
+        </div>
+
+        <div style="margin-top:12px" class="info-row">
+          <div class="muted">Estimated yield calculator included</div>
+          <div class="muted">Tip: click 'Create GitHub Issue' to open a prefilled issue for your repo (replace placeholders)</div>
+        </div>
+
+        <div style="display:flex;gap:8px;margin-top:12px">
+          <button id="issueBtn">Create GitHub Issue</button>
+          <button id="prBtn">Open Pull Request (template)</button>
+          <button id="downloadBtn" style="background:#10b981">Download HTML</button>
+        </div>
+
+        <details style="margin-top:12px">
+          <summary><strong>Purpose paragraph & assignment helpers</strong></summary>
+          <div style="margin-top:8px">
+            <p>This Rain Bank web application prototypes a small-scale urban rainwater capture system. It simulates inflow from a catchment area, filters through a silt-trap (modeled by an efficiency percentage), diverts the first-flush volume to avoid the dirtiest runoff, and accumulates the remaining clean water in storage. It is intended for demonstration, education, and early-stage feasibility analysis. Use the controls to explore how changes to catchment area, rainfall intensity, silt-trap performance, and storage capacity affect captured volume and overflow risk. The app is intentionally single-file so you can upload it directly to a GitHub repo, create issues and pull requests for collaboration, and deploy on static hosts (GitHub Pages, Vercel, Netlify).</p>
+
+            <h4>Sample GitHub Issue (click button opens a prefilled issue window — replace owner/repo)</h4>
+            <div class="sample-block">Title: Improve silt trap model
+
+Body:
+- Enhance the silt trap simulation to model clogging over time.
+- Add parameter for maintenance interval and effect on efficiency.
+- Add unit tests for the water-balance function.</div>
+
+            <h4>Sample Pull Request description</h4>
+            <div class="sample-block">PR title: feat: add event logging & download
+
+Body:
+This PR adds local event logging for simulation runs and a button to download the single-file HTML for archiving. It includes:
+- log persistence in-memory during session
+- download button to save current app HTML
+- unit tests (not included in this single-file demo) — see /tests in repo</div>
+          </div>
+        </details>
+
+      </section>
+
+      <aside class="card">
+        <h3 style="margin:0 0 10px">Rain Bank Visual</h3>
+        <div class="tank-wrap">
+          <div class="tank" id="tank">
+            <div class="water" id="water"></div>
+            <div class="gauge" id="gauge">0 / 500 L</div>
+          </div>
+        </div>
+
+        <div class="info-row" style="margin-top:12px">
+          <div>
+            <div class="muted">Current stored</div>
+            <div style="font-weight:600;font-size:18px" id="stored">0 L</div>
+          </div>
+          <div>
+            <div class="muted">Overflowed</div>
+            <div style="font-weight:600;font-size:18px;color:#ef4444" id="overflowed">0 L</div>
+          </div>
+        </div>
+
+        <div style="margin-top:12px">
+          <label>Collaborators (comma-separated)</label>
+          <input id="collab" type="text" placeholder="Alice, Bob, Charlie" style="width:100%;padding:8px;border-radius:8px;border:1px solid #eef6ff" />
+          <div style="margin-top:8px;display:flex;gap:8px">
+            <button id="addCollab">Add collaborators</button>
+            <button id="clearCollab" style="background:#ef4444">Clear</button>
+          </div>
+          <div style="margin-top:8px" class="muted small">Added: <span id="collabList">—</span></div>
+        </div>
+
+        <hr style="margin:12px 0;border:none;border-top:1px solid #eef6ff" />
+
+        <div>
+          <strong>How to use for your assignment</strong>
+          <ol style="padding-left:18px;margin-top:8px">
+            <li>Save this file as <code>index.html</code>.</li>
+            <li>Create a new GitHub repo and push this file to a branch (e.g., <code>feature/rainbank</code>).</li>
+            <li>Create an issue (use the button) and invite 2–3 collaborators by adding them to the repo or via the collaborators input above.</li>
+            <li>Open a Pull Request to merge to <code>main</code> (button opens a template link — replace placeholders).</li>
+            <li>Deploy to GitHub Pages or Vercel for the live demo.</li>
+          </ol>
+        </div>
+
+        <footer>
+          <div style="margin-top:8px">Connect to your GitHub repo: replace <code>OWNER</code> and <code>REPO</code> in the Issue/PR buttons to open prefilled pages.</div>
+        </footer>
+      </aside>
+    </main>
+  </div>
+
+  <script>
+    // Helpers & state
+    const rainSlider = document.getElementById('rainIntensity');
+    const areaSlider = document.getElementById('area');
+    const siltSlider = document.getElementById('silt');
+    const ffSlider = document.getElementById('firstFlush');
+    const capSlider = document.getElementById('capacity');
+
+    const rainVal = document.getElementById('rainVal');
+    const areaVal = document.getElementById('areaVal');
+    const siltVal = document.getElementById('siltVal');
+    const ffVal = document.getElementById('ffVal');
+    const capVal = document.getElementById('capVal');
+
+    const startBtn = document.getElementById('startBtn');
+    const resetBtn = document.getElementById('resetBtn');
+    const logEl = document.getElementById('log');
+    const waterEl = document.getElementById('water');
+    const gauge = document.getElementById('gauge');
+    const storedEl = document.getElementById('stored');
+    const overflowEl = document.getElementById('overflowed');
+    const collabInput = document.getElementById('collab');
+    const collabList = document.getElementById('collabList');
+    const addCollabBtn = document.getElementById('addCollab');
+    const clearCollabBtn = document.getElementById('clearCollab');
+    const issueBtn = document.getElementById('issueBtn');
+    const prBtn = document.getElementById('prBtn');
+    const downloadBtn = document.getElementById('downloadBtn');
+
+    let state = {
+      stored: 0,
+      overflow: 0,
+      running: false,
+      capacity: Number(capSlider.value),
+      log: []
+    };
+
+    function updateLabels(){
+      rainVal.textContent = rainSlider.value;
+      areaVal.textContent = areaSlider.value;
+      siltVal.textContent = siltSlider.value;
+      ffVal.textContent = ffSlider.value;
+      capVal.textContent = capSlider.value;
+      gauge.textContent = `${Math.round(state.stored)} / ${capSlider.value} L`;
+    }
+
+    [rainSlider,areaSlider,siltSlider,ffSlider,capSlider].forEach(el=>el.addEventListener('input',()=>{updateLabels();}))
+
+    function log(msg){
+      const time = new Date().toLocaleTimeString();
+      state.log.unshift(`[${time}] ${msg}`);
+      logEl.innerHTML = state.log.slice(0,200).map(l=>`<div>${l}</div>`).join('');
+    }
+
+    function reset(){
+      state.stored = 0; state.overflow = 0; state.running=false; state.log = [];
+      updateVisual(); logEl.innerHTML='Ready — adjust inputs and press Start.'; collabList.textContent = '—';
+    }
+
+    function updateVisual(){
+      const cap = Number(capSlider.value);
+      const pct = Math.min(100, (state.stored / cap) * 100);
+      waterEl.style.height = pct + '%';
+      gauge.textContent = `${Math.round(state.stored)} / ${cap} L`;
+      storedEl.textContent = Math.round(state.stored) + ' L';
+      overflowEl.textContent = Math.round(state.overflow) + ' L';
+    }
+
+    // Basic hydrology: rainfall L/min = intensity * area * runoff_coeff
+    // We'll use runoff_coeff = 0.8 as default.
+    function simulateStep(){
+      const intensity = Number(rainSlider.value); // L/min per m2 (user-provided simplification)
+      const area = Number(areaSlider.value); // m2
+      const runoff_coeff = 0.8;
+      const rawInflux = intensity * area * runoff_coeff; // L / minute
+
+      // silt trap reduces passage by (100 - efficiency)%; slider indicates percentage that passes
+      const passFraction = Number(siltSlider.value) / 100;
+      let afterSilt = rawInflux * passFraction;
+
+      // first flush diversion consumes configured liters until exhausted (once per run)
+      if(state.ffRemaining === undefined) state.ffRemaining = Number(ffSlider.value);
+      if(state.ffRemaining > 0){
+        const diverted = Math.min(state.ffRemaining, afterSilt);
+        afterSilt -= diverted; state.ffRemaining -= diverted;
+        if(diverted>0) log(`First-flush diverted ${diverted.toFixed(1)} L (remaining ${state.ffRemaining.toFixed(1)} L)`);
+      }
+
+      // add to storage
+      const cap = Number(capSlider.value);
+      const free = Math.max(0, cap - state.stored);
+      const accepted = Math.min(free, afterSilt);
+      const overflow = Math.max(0, afterSilt - accepted);
+      state.stored += accepted; state.overflow += overflow;
+
+      // log one line
+      log(`Influx: ${rawInflux.toFixed(1)} L → after silt: ${afterSilt.toFixed(1)} L; stored: +${accepted.toFixed(1)} L; overflow: ${overflow.toFixed(1)} L`);
+      updateVisual();
+    }
+
+    let simInterval = null;
+    startBtn.addEventListener('click',()=>{
+      if(state.running) return;
+      state.running = true; state.ffRemaining = Number(ffSlider.value);
+      log('Simulation started');
+      // run simulation every 1 second representing 1 minute in model (speeded up)
+      simInterval = setInterval(simulateStep, 1000);
+    });
+
+    resetBtn.addEventListener('click',()=>{
+      clearInterval(simInterval); simInterval=null; reset();
+    });
+
+    // collaborators
+    addCollabBtn.addEventListener('click',()=>{
+      const names = collabInput.value.split(',').map(s=>s.trim()).filter(Boolean);
+      if(names.length===0) return alert('Enter at least one name');
+      collabList.textContent = names.join(', ');
+      log(`Added collaborators: ${names.join(', ')}`);
+    });
+    clearCollabBtn.addEventListener('click',()=>{collabList.textContent='—';collabInput.value='';log('Cleared collaborators')});
+
+    // GitHub issue / PR buttons (open new tabs) — replace OWNER and REPO in the URL string
+    issueBtn.addEventListener('click',()=>{
+      const owner = 'OWNER';
+      const repo = 'REPO';
+      const title = encodeURIComponent('Improve silt trap model');
+      const body = encodeURIComponent('- Enhance the silt trap simulation to model clogging over time.\n- Add parameter for maintenance interval and effect on efficiency.\n- Add unit tests for the water-balance function.');
+      const url = `https://github.com/${owner}/${repo}/issues/new?title=${title}&body=${body}`;
+      window.open(url,'_blank');
+    });
+
+    prBtn.addEventListener('click',()=>{
+      const owner = 'OWNER';
+      const repo = 'REPO';
+      const title = encodeURIComponent('feat: add event logging & download');
+      const body = encodeURIComponent('This PR adds local event logging for simulation runs and a button to download the single-file HTML for archiving.');
+      // GitHub new pull request compare URL - user should push a branch like feature/rainbank and then use compare
+      const url = `https://github.com/${owner}/${repo}/compare/main...feature/rainbank?expand=1&title=${title}&body=${body}`;
+      window.open(url,'_blank');
+    });
+
+    // download current HTML (serializes the document)
+    downloadBtn.addEventListener('click',()=>{
+      const html = '<!doctype html>' + document.documentElement.outerHTML;
+      const blob = new Blob([html],{type:'text/html'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href=url; a.download='rainbank_index.html'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+      log('Downloaded current HTML');
+    });
+
+    // init
+    updateLabels(); updateVisual();
+  </script>
+</body>
+</html>
